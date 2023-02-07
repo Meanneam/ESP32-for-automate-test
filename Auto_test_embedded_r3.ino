@@ -2,11 +2,13 @@
 
 TaskHandle_t Serial_comm;
 TaskHandle_t Relay01_ctrl;
+TaskHandle_t Relay02_ctrl;
 TaskHandle_t Servo01_ctrl;
 
 const int Serial_comm_prior = 0;
 const int Servo01_ctrl_prior = 2;
 const int Relay01_ctrl_prior = 1;
+const int Relay02_ctrl_prior = 1;
 
 const int BUFFER_SIZE = 30; //Serial size input message buffer
 const int DEVICE_ID_SIZE = 6; //Device ID buffer
@@ -29,7 +31,8 @@ int Press_time = 120; //motor press button time
 int Release_time = 100; //motor release button time
 int Servo01_busy = 0;
 
-enum Relay_state{ON,OFF}Relay_currently;
+enum Relay01_state{ON,OFF}Relay01_currently;
+enum Relay02_state{ON,OFF}Relay02_currently;
 enum Servo_state{PRESS,RELEASE,PRESS_RELEASE_COUNT,PRESS_UNTIL}Servo_currently;
 
 Servo myservo; //ประกาศตัวแปรแทน Servo
@@ -107,20 +110,48 @@ void SerialComm( void * parameter )
         {
           case 1: //Program number 1
           {
-            Relay_currently = ON;
-            // Serial.print("Relay_currently : "); Serial.println("ON"); //debug
+            Relay01_currently = ON;
+            // Serial.print("Relay01_currently : "); Serial.println("ON"); //debug
             break;
           }
 
           case 2:
           {
-            Relay_currently = OFF;
-            // Serial.print("Relay_currently : "); Serial.println("OFF"); //debug
+            Relay01_currently = OFF;
+            // Serial.print("Relay01_currently : "); Serial.println("OFF"); //debug
             break;
           }
         }
 
-      xTaskCreatePinnedToCore(RLY01_control,"Control_relay01_manual",1000,(void*)&Relay_currently,Relay01_ctrl_prior,&Relay01_ctrl,0);
+      xTaskCreatePinnedToCore(RLY01_control,"Control_relay01_manual",1000,(void*)&Relay01_currently,Relay01_ctrl_prior,&Relay01_ctrl,0);
+      Serial.println("OK");
+
+      }
+
+      //Relay 02 control start here:
+      if(device_ID[0] == 'R' && device_ID[1] == 'L' && device_ID[2] == 'Y' && device_ID[3] == '0' && device_ID[4] == '2') //compare if input message == "RLY02" or not
+      {
+        // vTaskResume(Relay01_ctrl);
+        // Serial.println("Relay01 control access");
+        // Serial.flush();
+        switch(program_num_dec)
+        {
+          case 1: //Program number 1
+          {
+            Relay02_currently = ON;
+            // Serial.print("Relay02_currently : "); Serial.println("ON"); //debug
+            break;
+          }
+
+          case 2:
+          {
+            Relay02_currently = OFF;
+            // Serial.print("Relay02_currently : "); Serial.println("OFF"); //debug
+            break;
+          }
+        }
+
+      xTaskCreatePinnedToCore(RLY02_control,"Control_relay02_manual",1000,(void*)&Relay02_currently,Relay02_ctrl_prior,&Relay02_ctrl,0);
       Serial.println("OK");
 
       }
@@ -171,7 +202,12 @@ void SerialComm( void * parameter )
       {
         vTaskDelete(Servo01_ctrl);
         Servo01_busy = 0;
-      }  
+      }
+      if (Servo02_busy == 1)
+      {
+        vTaskDelete(Servo01_ctrl);
+        Servo01_busy = 0;
+      } 
       xTaskCreatePinnedToCore(SVO01_control,"Control_servo01_manual",1000,(void*)&Servo_currently,Servo01_ctrl_prior,&Servo01_ctrl,0);
       Serial.println("OK");
         
@@ -230,6 +266,25 @@ void RLY01_control(void * parameter)
       else if(*((int*)parameter) == 1)
       {
         digitalWrite(Relay01, LOW);
+        delay(100);
+      }
+  }
+}
+
+void RLY02_control(void * parameter)
+{
+  // Serial.print("Relay PG : "); Serial.println(*((int*)parameter)); //debug
+  for(;;)
+  {
+      if(*((int*)parameter) == 0)
+      {
+        digitalWrite(Relay02, HIGH);
+        delay(100);
+      }
+
+      else if(*((int*)parameter) == 1)
+      {
+        digitalWrite(Relay02, LOW);
         delay(100);
       }
   }
